@@ -424,5 +424,103 @@ describe('CrDetailComponent', () => {
 			expect(fixture.nativeElement.querySelector('.cr-detail__header h2').textContent).toContain('Replace SKU-B supplier');
 			expect(fixture.componentInstance.detail?.id).toBe('CR-2');
 		});
+
+		it('emits list sync for a mid-flight Approve without overwriting the new selection', async () => {
+			const fixture = await render(users.approver, 'CR-1');
+			const api = TestBed.inject(CrApiService);
+			const detail = fixture.componentInstance.detail;
+			expect(detail).not.toBeNull();
+			if (!detail) {
+				return;
+			}
+
+			const emitted: CrDetail[] = [];
+			fixture.componentInstance.changed.subscribe((cr) => emitted.push(cr));
+
+			let resolveApprove!: (value: CrDetail) => void;
+			const deferred = new Promise<CrDetail>((resolve) => {
+				resolveApprove = resolve;
+			});
+			jest.spyOn(api, 'approve').mockReturnValue(deferred);
+
+			fixture.nativeElement.querySelector('.cr-actions__approve').click();
+			fixture.detectChanges();
+
+			fixture.componentInstance.id = 'CR-2';
+			fixture.componentInstance.ngOnChanges({
+				id: new SimpleChange('CR-1', 'CR-2', false),
+			});
+			await flush();
+			fixture.detectChanges();
+			expect(fixture.nativeElement.querySelector('.cr-detail__header h2').textContent).toContain('Replace SKU-B supplier');
+
+			resolveApprove({
+				...detail,
+				status: 'APPROVED',
+				audit: [...detail.audit, { action: 'APPROVE', byUserId: 'mona', at: '2026-03-02T12:00:00.000Z' }],
+			});
+			await deferred;
+			await settleActions(fixture, 1);
+
+			expect(emitted).toHaveLength(1);
+			expect(emitted[0].id).toBe('CR-1');
+			expect(emitted[0].status).toBe('APPROVED');
+			expect(fixture.componentInstance.detail?.id).toBe('CR-2');
+			expect(fixture.nativeElement.querySelector('.cr-detail__header h2').textContent).toContain('Replace SKU-B supplier');
+			expect(fixture.nativeElement.querySelector('.cr-actions__success')).toBeNull();
+			expect(fixture.componentInstance.submitting).toBe(false);
+		});
+
+		it('emits list sync for a mid-flight reconcile without touching the new selection UI', async () => {
+			const fixture = await render(users.approver, 'CR-1');
+			const api = TestBed.inject(CrApiService);
+			const originalGet = api.getChangeRequest.bind(api);
+			const detail = fixture.componentInstance.detail;
+			expect(detail).not.toBeNull();
+			if (!detail) {
+				return;
+			}
+
+			const emitted: CrDetail[] = [];
+			fixture.componentInstance.changed.subscribe((cr) => emitted.push(cr));
+
+			let resolveApprove!: (value?: never) => void;
+			const approveDeferred = new Promise<CrDetail>((_, reject) => {
+				resolveApprove = () => reject(new Error('Network error'));
+			});
+			jest.spyOn(api, 'approve').mockReturnValue(approveDeferred);
+
+			fixture.nativeElement.querySelector('.cr-actions__approve').click();
+			fixture.detectChanges();
+
+			fixture.componentInstance.id = 'CR-2';
+			fixture.componentInstance.ngOnChanges({
+				id: new SimpleChange('CR-1', 'CR-2', false),
+			});
+			await flush();
+			fixture.detectChanges();
+
+			jest.spyOn(api, 'getChangeRequest').mockImplementation((user, id) => {
+				if (id === 'CR-1') {
+					return Promise.resolve({
+						...detail,
+						status: 'APPROVED',
+						audit: [...detail.audit, { action: 'APPROVE', byUserId: 'mona', at: '2026-03-02T12:00:00.000Z' }],
+					});
+				}
+				return originalGet(user, id);
+			});
+
+			resolveApprove();
+			await settleActions(fixture, 2);
+
+			expect(emitted).toHaveLength(1);
+			expect(emitted[0].id).toBe('CR-1');
+			expect(emitted[0].status).toBe('APPROVED');
+			expect(fixture.componentInstance.detail?.id).toBe('CR-2');
+			expect(fixture.nativeElement.querySelector('.cr-detail__header h2').textContent).toContain('Replace SKU-B supplier');
+			expect(fixture.nativeElement.querySelector('.cr-actions__error')).toBeNull();
+			expect(fixture.componentInstance.actionsBlocked).toBe(false);
+		});
 	});
 });

@@ -136,6 +136,9 @@ export class CrDetailComponent implements OnInit, OnChanges {
 	/**
 	 * Shared action runner: permission + in-flight guards, coherent success/error UI, and
 	 * post-failure reconcile (the mock may persist a transition before rejecting).
+	 *
+	 * List sync (`changed`) always refers to the CR that was acted on. Detail UI updates apply
+	 * only while that same selection + load generation is still current.
 	 */
 	private async runAction(kind: 'approve' | 'reject', call: () => Promise<CrDetail>): Promise<void> {
 		if (this.submitting || !canActOnPendingCr(this.session.user, this.detail?.status) || this.actionsBlocked) {
@@ -143,6 +146,7 @@ export class CrDetailComponent implements OnInit, OnChanges {
 		}
 
 		const requestedId = this.id;
+		const seqAtStart = this.loadSeq;
 		this.submitting = true;
 		this.pendingKind = kind;
 		this.actionError = undefined;
@@ -150,45 +154,42 @@ export class CrDetailComponent implements OnInit, OnChanges {
 
 		try {
 			const updated = await call();
-			if (requestedId !== this.id) {
+			// Always sync the list for the CR that was acted on — even if the user navigated away.
+			this.changed.emit(updated);
+			if (!this.isCurrentAction(requestedId, seqAtStart)) {
 				return;
 			}
-			this.applyDetail(updated, true);
+			this.applyDetail(updated);
 			this.actionSuccess = kind === 'approve' ? 'Change request approved.' : 'Change request rejected.';
 			this.rejectControl.reset('');
 		} catch (err) {
-			if (requestedId !== this.id) {
-				return;
-			}
 			const message = (err as Error).message || 'Request failed';
-			await this.reconcileAfterActionFailure(requestedId, message);
+			await this.reconcileAfterActionFailure(requestedId, message, seqAtStart);
 		} finally {
-			if (requestedId === this.id) {
+			if (this.isCurrentAction(requestedId, seqAtStart)) {
 				this.submitting = false;
 				this.pendingKind = null;
 			}
 		}
 	}
 
-	private applyDetail(detail: CrDetail, emitChanged: boolean): void {
+	private applyDetail(detail: CrDetail): void {
 		this.state = { status: 'loaded', data: detail };
-		if (emitChanged) {
-			this.changed.emit(detail);
-		}
 	}
 
 	/**
-	 * After an action error, re-fetch the CR. The mock API writes the transition before
-	 * `failNext` rejects, so the local view may be stale until we reconcile.
+	 * After an action error, re-fetch the CR that was acted on. The mock API writes the transition
+	 * before `failNext` rejects, so the list may need that fresh status even if the user has
+	 * already selected another CR.
 	 */
-	private async reconcileAfterActionFailure(requestedId: string, message: string): Promise<void> {
+	private async reconcileAfterActionFailure(requestedId: string, message: string, seqAtStart: number): Promise<void> {
 		try {
 			const fresh = await this.api.getChangeRequest(this.session.user, requestedId);
-			if (requestedId !== this.id) {
+			this.changed.emit(fresh);
+			if (!this.isCurrentAction(requestedId, seqAtStart)) {
 				return;
 			}
-			// Always emit so the list picks up a server-side transition that failed to confirm.
-			this.applyDetail(fresh, true);
+			this.applyDetail(fresh);
 			this.actionsBlocked = false;
 			if (canActOnPendingCr(this.session.user, fresh.status)) {
 				this.actionError = `${message} Status was refreshed; you may retry.`;
@@ -198,7 +199,7 @@ export class CrDetailComponent implements OnInit, OnChanges {
 				this.rejectControl.reset('');
 			}
 		} catch {
-			if (requestedId !== this.id) {
+			if (!this.isCurrentAction(requestedId, seqAtStart)) {
 				return;
 			}
 			// Keep the existing loaded view, but block retries until the user reloads.
@@ -209,5 +210,10 @@ export class CrDetailComponent implements OnInit, OnChanges {
 
 	private isCurrentLoad(seq: number, requestedId: string): boolean {
 		return seq === this.loadSeq && requestedId === this.id;
+	}
+
+	/** True when this action still owns the visible detail pane (same id and load generation). */
+	private isCurrentAction(requestedId: string, seqAtStart: number): boolean {
+		return requestedId === this.id && seqAtStart === this.loadSeq;
 	}
 }
