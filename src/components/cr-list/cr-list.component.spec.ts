@@ -110,4 +110,38 @@ describe('CrListComponent', () => {
 		fixture.nativeElement.querySelectorAll('.cr-list__row')[1].click();
 		expect(emitted).toEqual(['CR-2']);
 	});
+
+	it('applies a remote detail update without clearing the status filter', async () => {
+		const fixture = await render(users.approver);
+		setStatusFilter(fixture, 'PENDING_APPROVAL');
+		expect(fixture.nativeElement.querySelectorAll('.cr-list__row').length).toBe(1);
+		expect(fixture.componentInstance.statusFilter).toBe('PENDING_APPROVAL');
+
+		const pending = fixture.componentInstance.state.data?.find((row) => row.id === 'CR-1');
+		expect(pending).toBeTruthy();
+		if (!pending) {
+			return;
+		}
+
+		fixture.componentInstance.applyRemoteUpdate({
+			...pending,
+			status: 'APPROVED',
+			agreementId: 'AGR-1',
+			baselineLineItems: [],
+			proposedLineItems: [],
+			baselineTotal: 8000,
+			newTotal: 8500,
+			audit: [],
+		});
+		fixture.detectChanges();
+
+		expect(fixture.componentInstance.statusFilter).toBe('PENDING_APPROVAL');
+		expect(fixture.componentInstance.state.data?.find((row) => row.id === 'CR-1')?.status).toBe('APPROVED');
+		// Filtered view no longer includes the approved row
+		expect(fixture.nativeElement.querySelector('.cr-list__no-matches')).not.toBeNull();
+		expect(fixture.nativeElement.querySelector('.cr-list__table')).toBeNull();
+
+		setStatusFilter(fixture, 'ALL');
+		expect(fixture.nativeElement.querySelector('.cr-list__row').textContent).toContain('APPROVED');
+	});
 });

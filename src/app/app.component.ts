@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CrListComponent } from '../components/cr-list/cr-list.component';
 import { CrDetailComponent } from '../components/cr-detail/cr-detail.component';
 import { SessionService } from '../session/session.service';
 import { users } from '../api/fixtures';
+import { CrDetail } from '../models/cr.models';
 
 /**
  * Demo app shell that hosts the list + detail screens so you can click through the UI in a browser
@@ -24,15 +25,23 @@ export class AppComponent {
 	selectedId: string | null = 'CR-1';
 	show = true;
 
+	@ViewChild(CrListComponent) private list?: CrListComponent;
+
 	constructor(public readonly session: SessionService) {}
 
 	switchUser(key: string): void {
 		this.session.user = users[key];
+		// Drop the previous selection so another org never sees a stale CR detail.
+		this.selectedId = null;
 		this.reload();
 	}
 
 	onSelect(id: string): void {
 		this.selectedId = id;
+	}
+
+	onCrChanged(detail: CrDetail): void {
+		this.list?.applyRemoteUpdate(detail);
 	}
 
 	/** Destroy + recreate the panes so they re-load as the newly selected user. */

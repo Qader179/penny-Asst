@@ -2,7 +2,7 @@ import { Component, EventEmitter, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CrApiService } from '../../api/cr-api.service';
 import { SessionService } from '../../session/session.service';
-import { CrStatus, CrSummary } from '../../models/cr.models';
+import { CrDetail, CrStatus, CrSummary } from '../../models/cr.models';
 import { idle, loading, ViewState } from '../../common/view-state';
 
 /**
@@ -40,6 +40,32 @@ export class CrListComponent implements OnInit {
 
 	onFilterChange(value: string): void {
 		this.statusFilter = value as CrStatus | 'ALL';
+	}
+
+	/**
+	 * Patch a row from a detail update without reloading or clearing the active status filter.
+	 * `visibleRows` recomputes so a row that no longer matches the filter disappears naturally.
+	 */
+	applyRemoteUpdate(detail: CrDetail): void {
+		const rows = this.state.data;
+		if (!rows) {
+			return;
+		}
+		const index = rows.findIndex((row) => row.id === detail.id);
+		if (index < 0) {
+			return;
+		}
+		const next = rows.slice();
+		next[index] = {
+			id: detail.id,
+			title: detail.title,
+			status: detail.status,
+			orgCode: detail.orgCode,
+			delta: detail.delta,
+			currency: detail.currency,
+			updatedAt: detail.updatedAt,
+		};
+		this.state = { status: next.length ? 'loaded' : 'empty', data: next };
 	}
 
 	/** Rows to render, after applying the active status filter. */

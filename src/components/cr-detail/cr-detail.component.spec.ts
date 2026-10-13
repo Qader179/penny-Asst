@@ -1,3 +1,4 @@
+import { Component, SimpleChange } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CrDetailComponent, requiredTrimmed } from './cr-detail.component';
 import { CrApiService } from '../../api/cr-api.service';
@@ -5,6 +6,19 @@ import { SessionService } from '../../session/session.service';
 import { users } from '../../api/fixtures';
 import { CrDetail, ReqUser } from '../../models/cr.models';
 import { FormControl } from '@angular/forms';
+
+@Component({
+	standalone: true,
+	imports: [CrDetailComponent],
+	template: `<app-cr-detail [id]="id" (changed)="onChanged($event)"></app-cr-detail>`,
+})
+class DetailHostComponent {
+	id = 'CR-1';
+	emitted: CrDetail[] = [];
+	onChanged(detail: CrDetail): void {
+		this.emitted.push(detail);
+	}
+}
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -322,6 +336,93 @@ describe('CrDetailComponent', () => {
 			// Existing loaded view is preserved
 			expect(fixture.nativeElement.querySelector('.cr-detail__header h2').textContent).toContain('Add 1 unit of SKU-A');
 			expect(fixture.componentInstance.detail?.status).toBe('PENDING_APPROVAL');
+		});
+
+		it('emits changed after a successful Approve so the list can synchronize', async () => {
+			const fixture = await render(users.approver, 'CR-1');
+			const emitted: CrDetail[] = [];
+			fixture.componentInstance.changed.subscribe((detail) => emitted.push(detail));
+
+			fixture.nativeElement.querySelector('.cr-actions__approve').click();
+			await settleActions(fixture);
+
+			expect(emitted).toHaveLength(1);
+			expect(emitted[0].id).toBe('CR-1');
+			expect(emitted[0].status).toBe('APPROVED');
+		});
+
+		it('emits changed after a successful post-failure reconcile', async () => {
+			const fixture = await render(users.approver, 'CR-1');
+			const emitted: CrDetail[] = [];
+			fixture.componentInstance.changed.subscribe((detail) => emitted.push(detail));
+			TestBed.inject(CrApiService).failNext = true;
+
+			fixture.nativeElement.querySelector('.cr-actions__approve').click();
+			await settleActions(fixture, 3);
+
+			expect(emitted).toHaveLength(1);
+			expect(emitted[0].status).toBe('APPROVED');
+		});
+	});
+
+	describe('selection changes', () => {
+		it('reloads when the id input changes', async () => {
+			TestBed.configureTestingModule({
+				imports: [DetailHostComponent],
+				providers: [{ provide: SessionService, useValue: { user: users.approver } }],
+			});
+			await TestBed.compileComponents();
+			const fixture = TestBed.createComponent(DetailHostComponent);
+			fixture.detectChanges();
+			await flush();
+			fixture.detectChanges();
+			expect(fixture.nativeElement.querySelector('.cr-detail__header h2').textContent).toContain('Add 1 unit of SKU-A');
+
+			fixture.componentInstance.id = 'CR-2';
+			fixture.detectChanges();
+			await flush();
+			fixture.detectChanges();
+
+			expect(fixture.nativeElement.querySelector('.cr-detail__header h2').textContent).toContain('Replace SKU-B supplier');
+			expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('APPLIED');
+		});
+
+		it('ignores a stale slower response after a newer selection', async () => {
+			const fixture = await render(users.approver, 'CR-1');
+			const api = TestBed.inject(CrApiService);
+			const originalGet = api.getChangeRequest.bind(api);
+
+			let resolveSlow!: (value: CrDetail) => void;
+			const slow = new Promise<CrDetail>((resolve) => {
+				resolveSlow = resolve;
+			});
+
+			jest.spyOn(api, 'getChangeRequest').mockImplementation((user, id) => {
+				if (id === 'CR-1') {
+					return slow;
+				}
+				return originalGet(user, id);
+			});
+
+			// Start a slow reload for CR-1, then select CR-2 before it settles
+			fixture.componentInstance.ngOnChanges({
+				id: new SimpleChange(null, 'CR-1', false),
+			});
+			fixture.componentInstance.id = 'CR-2';
+			fixture.componentInstance.ngOnChanges({
+				id: new SimpleChange('CR-1', 'CR-2', false),
+			});
+			await flush();
+			fixture.detectChanges();
+			expect(fixture.nativeElement.querySelector('.cr-detail__header h2').textContent).toContain('Replace SKU-B supplier');
+
+			const staleCr1 = await originalGet(users.approver, 'CR-1');
+			resolveSlow(staleCr1);
+			await flush();
+			fixture.detectChanges();
+
+			expect(fixture.nativeElement.querySelector('.cr-detail__header h2').textContent).toContain('Replace SKU-B supplier');
+			expect(fixture.componentInstance.detail?.id).toBe('CR-2');
 		});
 	});
 });

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AbstractControl, FormControl, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
 import { CrApiService } from '../../api/cr-api.service';
@@ -24,8 +24,10 @@ export function requiredTrimmed(control: AbstractControl): ValidationErrors | nu
 	imports: [CommonModule, ReactiveFormsModule],
 	templateUrl: './cr-detail.component.html',
 })
-export class CrDetailComponent implements OnInit {
+export class CrDetailComponent implements OnInit, OnChanges {
 	@Input() id!: string;
+	/** Emitted when the loaded CR changes due to a successful action or a successful post-failure reconcile. */
+	@Output() changed = new EventEmitter<CrDetail>();
 
 	state: ViewState<CrDetail> = idle();
 	submitting = false;
@@ -37,21 +39,43 @@ export class CrDetailComponent implements OnInit {
 	actionSuccess?: string;
 	rejectControl = new FormControl('', { nonNullable: true, validators: [requiredTrimmed] });
 
+	/** Monotonic token so an older load response cannot overwrite a newer selection. */
+	private loadSeq = 0;
+
 	constructor(private readonly api: CrApiService, private readonly session: SessionService) {}
 
 	ngOnInit(): void {
 		void this.load();
 	}
 
+	ngOnChanges(changes: SimpleChanges): void {
+		if (changes['id'] && !changes['id'].firstChange) {
+			void this.load();
+		}
+	}
+
 	async load(): Promise<void> {
+		const requestedId = this.id;
+		const seq = ++this.loadSeq;
+
 		this.state = loading();
+		this.submitting = false;
+		this.pendingKind = null;
 		this.actionError = undefined;
 		this.actionSuccess = undefined;
 		this.actionsBlocked = false;
+		this.rejectControl.reset('');
+
 		try {
-			const detail = await this.api.getChangeRequest(this.session.user, this.id);
+			const detail = await this.api.getChangeRequest(this.session.user, requestedId);
+			if (!this.isCurrentLoad(seq, requestedId)) {
+				return;
+			}
 			this.state = { status: 'loaded', data: detail };
 		} catch (err) {
+			if (!this.isCurrentLoad(seq, requestedId)) {
+				return;
+			}
 			this.state = { status: 'error', data: null, error: (err as Error).message };
 		}
 	}
@@ -129,7 +153,7 @@ export class CrDetailComponent implements OnInit {
 			if (requestedId !== this.id) {
 				return;
 			}
-			this.applyDetail(updated);
+			this.applyDetail(updated, true);
 			this.actionSuccess = kind === 'approve' ? 'Change request approved.' : 'Change request rejected.';
 			this.rejectControl.reset('');
 		} catch (err) {
@@ -146,8 +170,11 @@ export class CrDetailComponent implements OnInit {
 		}
 	}
 
-	private applyDetail(detail: CrDetail): void {
+	private applyDetail(detail: CrDetail, emitChanged: boolean): void {
 		this.state = { status: 'loaded', data: detail };
+		if (emitChanged) {
+			this.changed.emit(detail);
+		}
 	}
 
 	/**
@@ -160,7 +187,8 @@ export class CrDetailComponent implements OnInit {
 			if (requestedId !== this.id) {
 				return;
 			}
-			this.applyDetail(fresh);
+			// Always emit so the list picks up a server-side transition that failed to confirm.
+			this.applyDetail(fresh, true);
 			this.actionsBlocked = false;
 			if (canActOnPendingCr(this.session.user, fresh.status)) {
 				this.actionError = `${message} Status was refreshed; you may retry.`;
@@ -177,5 +205,9 @@ export class CrDetailComponent implements OnInit {
 			this.actionsBlocked = true;
 			this.actionError = `${message} Could not confirm the latest status. Reload before retrying.`;
 		}
+	}
+
+	private isCurrentLoad(seq: number, requestedId: string): boolean {
+		return seq === this.loadSeq && requestedId === this.id;
 	}
 }
