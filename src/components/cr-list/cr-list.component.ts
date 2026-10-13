@@ -7,8 +7,7 @@ import { idle, loading, ViewState } from '../../common/view-state';
 
 /**
  * Change Request LIST page. Loads the caller's CRs and renders loading / loaded / empty / error
- * states, plus a status filter. The load + state handling are provided as the pattern; the status
- * filter (`visibleRows`) is yours to complete.
+ * states, plus a status filter that narrows `visibleRows` (and the rendered table).
  */
 @Component({
 	selector: 'app-cr-list',
@@ -46,7 +45,9 @@ export class CrListComponent implements OnInit {
 	/** Rows to render, after applying the active status filter. */
 	get visibleRows(): CrSummary[] {
 		const rows = this.state.data ?? [];
-		// TODO: narrow `rows` by `this.statusFilter` ('ALL' shows everything).
-		return rows;
+		if (this.statusFilter === 'ALL') {
+			return rows;
+		}
+		return rows.filter((row) => row.status === this.statusFilter);
 	}
 }
