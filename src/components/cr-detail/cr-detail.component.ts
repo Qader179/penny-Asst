@@ -1,6 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { AbstractControl, FormControl, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
 import { CrApiService } from '../../api/cr-api.service';
 import { SessionService } from '../../session/session.service';
 import { CrDetail, LineItem, TimelineEntry } from '../../models/cr.models';
@@ -9,10 +9,14 @@ import { canActOnPendingCr } from '../../common/permissions';
 import { computeDiff, DiffRow } from '../diff.util';
 import { formatMoney, formatSignedMoney, lineTotal } from '../../common/money.util';
 
+/** Reject reasons must contain non-whitespace content. */
+export function requiredTrimmed(control: AbstractControl): ValidationErrors | null {
+	return String(control.value ?? '').trim() ? null : { required: true };
+}
+
 /**
  * Change Request DETAIL page: loads a CR and renders the diff/preview, the approval timeline, and
- * permission-aware Approve/Reject actions. Diff/timeline display are complete; Approve/Reject
- * actions and reject validation remain.
+ * permission-aware Approve/Reject actions with validation and safe in-flight / failure handling.
  */
 @Component({
 	selector: 'app-cr-detail',
@@ -25,9 +29,13 @@ export class CrDetailComponent implements OnInit {
 
 	state: ViewState<CrDetail> = idle();
 	submitting = false;
+	/** Which action is in flight — drives button labels without disabling the reject control. */
+	pendingKind: 'approve' | 'reject' | null = null;
+	/** Blocks further actions when a failed call could not be reconciled with the server. */
+	actionsBlocked = false;
 	actionError?: string;
-	// TODO: add validation so the form is invalid until a reason is entered.
-	rejectControl = new FormControl('', { nonNullable: true });
+	actionSuccess?: string;
+	rejectControl = new FormControl('', { nonNullable: true, validators: [requiredTrimmed] });
 
 	constructor(private readonly api: CrApiService, private readonly session: SessionService) {}
 
@@ -38,6 +46,8 @@ export class CrDetailComponent implements OnInit {
 	async load(): Promise<void> {
 		this.state = loading();
 		this.actionError = undefined;
+		this.actionSuccess = undefined;
+		this.actionsBlocked = false;
 		try {
 			const detail = await this.api.getChangeRequest(this.session.user, this.id);
 			this.state = { status: 'loaded', data: detail };
@@ -62,12 +72,12 @@ export class CrDetailComponent implements OnInit {
 
 	/** Whether the current user may approve the loaded CR (status + approve policy). */
 	get canApprove(): boolean {
-		return canActOnPendingCr(this.session.user, this.detail?.status);
+		return !this.actionsBlocked && canActOnPendingCr(this.session.user, this.detail?.status);
 	}
 
 	/** Reject uses the same gate as Approve — no reject-specific policy exists. */
 	get canReject(): boolean {
-		return canActOnPendingCr(this.session.user, this.detail?.status);
+		return !this.actionsBlocked && canActOnPendingCr(this.session.user, this.detail?.status);
 	}
 
 	fmt(amount: number): string {
@@ -87,13 +97,85 @@ export class CrDetailComponent implements OnInit {
 	}
 
 	async approve(): Promise<void> {
-		// TODO: perform the approve action through the API and reflect the outcome in the view.
-		throw new Error('approve() not implemented');
+		await this.runAction('approve', () => this.api.approve(this.session.user, this.id, new Date().toISOString()));
 	}
 
 	async reject(): Promise<void> {
-		// TODO: require a valid rejectControl, then perform the reject action through the API and
-		//       reflect the outcome in the view.
-		throw new Error('reject() not implemented');
+		this.rejectControl.markAsTouched();
+		if (this.rejectControl.invalid) {
+			return;
+		}
+		const reason = this.rejectControl.value.trim();
+		await this.runAction('reject', () => this.api.reject(this.session.user, this.id, new Date().toISOString(), reason));
+	}
+
+	/**
+	 * Shared action runner: permission + in-flight guards, coherent success/error UI, and
+	 * post-failure reconcile (the mock may persist a transition before rejecting).
+	 */
+	private async runAction(kind: 'approve' | 'reject', call: () => Promise<CrDetail>): Promise<void> {
+		if (this.submitting || !canActOnPendingCr(this.session.user, this.detail?.status) || this.actionsBlocked) {
+			return;
+		}
+
+		const requestedId = this.id;
+		this.submitting = true;
+		this.pendingKind = kind;
+		this.actionError = undefined;
+		this.actionSuccess = undefined;
+
+		try {
+			const updated = await call();
+			if (requestedId !== this.id) {
+				return;
+			}
+			this.applyDetail(updated);
+			this.actionSuccess = kind === 'approve' ? 'Change request approved.' : 'Change request rejected.';
+			this.rejectControl.reset('');
+		} catch (err) {
+			if (requestedId !== this.id) {
+				return;
+			}
+			const message = (err as Error).message || 'Request failed';
+			await this.reconcileAfterActionFailure(requestedId, message);
+		} finally {
+			if (requestedId === this.id) {
+				this.submitting = false;
+				this.pendingKind = null;
+			}
+		}
+	}
+
+	private applyDetail(detail: CrDetail): void {
+		this.state = { status: 'loaded', data: detail };
+	}
+
+	/**
+	 * After an action error, re-fetch the CR. The mock API writes the transition before
+	 * `failNext` rejects, so the local view may be stale until we reconcile.
+	 */
+	private async reconcileAfterActionFailure(requestedId: string, message: string): Promise<void> {
+		try {
+			const fresh = await this.api.getChangeRequest(this.session.user, requestedId);
+			if (requestedId !== this.id) {
+				return;
+			}
+			this.applyDetail(fresh);
+			this.actionsBlocked = false;
+			if (canActOnPendingCr(this.session.user, fresh.status)) {
+				this.actionError = `${message} Status was refreshed; you may retry.`;
+			} else {
+				// Transition likely already applied server-side — do not offer another action.
+				this.actionError = `${message} The change request was updated on the server; actions are now unavailable.`;
+				this.rejectControl.reset('');
+			}
+		} catch {
+			if (requestedId !== this.id) {
+				return;
+			}
+			// Keep the existing loaded view, but block retries until the user reloads.
+			this.actionsBlocked = true;
+			this.actionError = `${message} Could not confirm the latest status. Reload before retrying.`;
+		}
 	}
 }
