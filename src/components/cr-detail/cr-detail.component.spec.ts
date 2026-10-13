@@ -31,4 +31,26 @@ describe('CrDetailComponent', () => {
 		const approveBtn: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
 		expect(approveBtn.disabled).toBe(true);
 	});
+
+	it('keeps Approve rendered but disabled and hides Reject for a read-only viewer', async () => {
+		const fixture = await render(users.viewer, 'CR-1');
+		const approveBtn: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
+		expect(approveBtn).not.toBeNull();
+		expect(approveBtn.disabled).toBe(true);
+		expect(fixture.nativeElement.querySelector('.cr-actions__reject')).toBeNull();
+	});
+
+	it('enables Approve for an approver on a pending CR', async () => {
+		const fixture = await render(users.approver, 'CR-1');
+		const approveBtn: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
+		expect(approveBtn.disabled).toBe(false);
+		expect(fixture.nativeElement.querySelector('.cr-actions__reject')).not.toBeNull();
+	});
+
+	it('disables Approve and hides Reject when the CR is not pending approval', async () => {
+		const fixture = await render(users.approver, 'CR-2'); // APPLIED
+		const approveBtn: HTMLButtonElement = fixture.nativeElement.querySelector('.cr-actions__approve');
+		expect(approveBtn.disabled).toBe(true);
+		expect(fixture.nativeElement.querySelector('.cr-actions__reject')).toBeNull();
+	});
 });
