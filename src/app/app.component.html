@@ -2,13 +2,14 @@
 	<h1>Change Request Review</h1>
 	<label>
 		Acting as:
-		<select (change)="switchUser($any($event.target).value)">
+		<select (change)="switchUser($any($event.target).value)" [attr.aria-label]="'Acting as user'">
 			<option *ngFor="let key of userKeys" [value]="key" [selected]="session.user.id === users[key]?.id">{{ key }}</option>
 		</select>
 	</label>
 </header>
 
 <main class="app-layout" *ngIf="show">
-	<app-cr-list (select)="onSelect($event)"></app-cr-list>
+	<app-cr-list [selectedId]="selectedId" (select)="onSelect($event)"></app-cr-list>
 	<app-cr-detail *ngIf="selectedId" [id]="selectedId" (changed)="onCrChanged($event)"></app-cr-detail>
+	<p *ngIf="!selectedId" class="app-detail-placeholder" role="status">Select a change request from the list to review its details.</p>
 </main>

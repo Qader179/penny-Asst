@@ -18,6 +18,7 @@ import { CrDetail } from '../models/cr.models';
 	standalone: true,
 	imports: [CommonModule, CrListComponent, CrDetailComponent],
 	templateUrl: './app.component.html',
+	styleUrls: ['./app.component.css'],
 })
 export class AppComponent {
 	readonly users = users;

@@ -1,9 +1,10 @@
-import { Component, EventEmitter, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CrApiService } from '../../api/cr-api.service';
 import { SessionService } from '../../session/session.service';
 import { CrDetail, CrStatus, CrSummary } from '../../models/cr.models';
 import { idle, loading, ViewState } from '../../common/view-state';
+import { formatSignedMoney } from '../../common/money.util';
 
 /**
  * Change Request LIST page. Loads the caller's CRs and renders loading / loaded / empty / error
@@ -14,8 +15,10 @@ import { idle, loading, ViewState } from '../../common/view-state';
 	standalone: true,
 	imports: [CommonModule],
 	templateUrl: './cr-list.component.html',
+	styleUrls: ['./cr-list.component.css'],
 })
 export class CrListComponent implements OnInit {
+	@Input() selectedId: string | null = null;
 	@Output() select = new EventEmitter<string>();
 
 	state: ViewState<CrSummary[]> = idle();
@@ -75,5 +78,14 @@ export class CrListComponent implements OnInit {
 			return rows;
 		}
 		return rows.filter((row) => row.status === this.statusFilter);
+	}
+
+	/** Match detail-pane signed money formatting for list deltas. */
+	fmtDelta(cr: CrSummary): string {
+		return formatSignedMoney(cr.delta, cr.currency);
+	}
+
+	onRowActivate(id: string): void {
+		this.select.emit(id);
 	}
 }

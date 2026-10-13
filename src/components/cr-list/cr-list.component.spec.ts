@@ -111,6 +111,31 @@ describe('CrListComponent', () => {
 		expect(emitted).toEqual(['CR-2']);
 	});
 
+	it('emits select when the row ID button is activated', async () => {
+		const fixture = await render(users.approver);
+		const emitted: string[] = [];
+		fixture.componentInstance.select.subscribe((id) => emitted.push(id));
+
+		const button: HTMLButtonElement = fixture.nativeElement.querySelectorAll('.cr-list__select-btn')[0];
+		expect(button.tagName).toBe('BUTTON');
+		button.click();
+		expect(emitted).toEqual(['CR-1']);
+		expect(button.getAttribute('aria-label')).toContain('Open change request CR-1');
+	});
+
+	it('marks the selected row and formats deltas like the detail view', async () => {
+		const fixture = await render(users.approver);
+		fixture.componentInstance.selectedId = 'CR-1';
+		fixture.detectChanges();
+
+		const selected: HTMLElement = fixture.nativeElement.querySelector('.cr-list__row--selected');
+		expect(selected).not.toBeNull();
+		expect(selected.textContent).toContain('CR-1');
+		expect(selected.querySelector('.cr-list__select-btn')?.getAttribute('aria-current')).toBe('true');
+		expect(selected.textContent).toContain('+USD 500.00');
+	});
+
+
 	it('applies a remote detail update without clearing the status filter', async () => {
 		const fixture = await render(users.approver);
 		setStatusFilter(fixture, 'PENDING_APPROVAL');

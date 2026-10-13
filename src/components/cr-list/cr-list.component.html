@@ -26,22 +26,39 @@
 		No change requests match the selected status.
 	</p>
 
-	<table *ngIf="state.status === 'loaded' && visibleRows.length > 0" class="cr-list__table">
-		<thead>
-			<tr>
-				<th>ID</th>
-				<th>Title</th>
-				<th>Status</th>
-				<th>Delta</th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr *ngFor="let cr of visibleRows" class="cr-list__row" (click)="select.emit(cr.id)">
-				<td>{{ cr.id }}</td>
-				<td>{{ cr.title }}</td>
-				<td><span class="cr-status" [attr.data-status]="cr.status">{{ cr.status }}</span></td>
-				<td>{{ cr.delta }}</td>
-			</tr>
-		</tbody>
-	</table>
+	<div *ngIf="state.status === 'loaded' && visibleRows.length > 0" class="cr-table-scroll">
+		<table class="cr-list__table">
+			<thead>
+				<tr>
+					<th scope="col">ID</th>
+					<th scope="col">Title</th>
+					<th scope="col">Status</th>
+					<th scope="col">Delta</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr
+					*ngFor="let cr of visibleRows"
+					class="cr-list__row"
+					[class.cr-list__row--selected]="cr.id === selectedId"
+					(click)="onRowActivate(cr.id)"
+				>
+					<td>
+						<button
+							type="button"
+							class="cr-list__select-btn"
+							[attr.aria-current]="cr.id === selectedId ? 'true' : null"
+							[attr.aria-label]="'Open change request ' + cr.id + ', ' + cr.title"
+							(click)="$event.stopPropagation(); onRowActivate(cr.id)"
+						>
+							{{ cr.id }}
+						</button>
+					</td>
+					<td class="cr-list__title">{{ cr.title }}</td>
+					<td><span class="cr-status" [attr.data-status]="cr.status">{{ cr.status }}</span></td>
+					<td class="cr-list__delta">{{ fmtDelta(cr) }}</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 </section>

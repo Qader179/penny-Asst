@@ -1,0 +1,81 @@
+:host {
+	display: block;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.app-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 0.75rem 1.25rem;
+	padding: 0.85rem 1.5rem;
+	background: var(--color-surface);
+	border-bottom: 1px solid var(--color-border);
+	box-shadow: var(--shadow);
+}
+
+.app-header label {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 0.875rem;
+	color: var(--color-text-muted);
+}
+
+.app-header select {
+	font: inherit;
+	color: var(--color-text);
+	padding: 0.35rem 0.55rem;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	background: var(--color-surface);
+	max-width: 100%;
+}
+
+/*
+ * Grid children are the host elements (app-cr-list / app-cr-detail), not .cr-list/.cr-detail.
+ * List column tops out near 520–540px so ID/Status/Delta stay visible without in-card scroll
+ * on wide desktops; minmax(0, …) still lets hosts shrink without page overflow.
+ */
+.app-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 33.5rem) minmax(0, 1fr);
+	gap: 1.25rem;
+	padding: 1.25rem 1.5rem 2rem;
+	align-items: start;
+	max-width: 1440px;
+	width: 100%;
+	margin: 0 auto;
+}
+
+.app-layout > * {
+	min-width: 0;
+	max-width: 100%;
+}
+
+.app-detail-placeholder {
+	margin: 0;
+	padding: 2rem 1.5rem;
+	background: var(--color-surface);
+	border: 1px dashed var(--color-border);
+	border-radius: var(--radius);
+	color: var(--color-text-muted);
+	text-align: center;
+	box-shadow: var(--shadow);
+}
+
+@media (max-width: 960px) {
+	.app-layout {
+		grid-template-columns: minmax(0, 1fr);
+		padding: 1rem;
+		gap: 1rem;
+	}
+}
+
+@media (max-width: 560px) {
+	.app-header {
+		padding: 0.75rem 1rem;
+	}
+}

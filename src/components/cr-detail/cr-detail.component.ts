@@ -23,6 +23,7 @@ export function requiredTrimmed(control: AbstractControl): ValidationErrors | nu
 	standalone: true,
 	imports: [CommonModule, ReactiveFormsModule],
 	templateUrl: './cr-detail.component.html',
+	styleUrls: ['./cr-detail.component.css'],
 })
 export class CrDetailComponent implements OnInit, OnChanges {
 	@Input() id!: string;

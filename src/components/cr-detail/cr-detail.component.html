@@ -8,68 +8,72 @@
 
 	<ng-container *ngIf="state.status === 'loaded' && detail as cr">
 		<header class="cr-detail__header">
-			<h2>{{ cr.title }}</h2>
+			<div class="cr-detail__header-main">
+				<h2>{{ cr.title }}</h2>
+				<p class="cr-detail__totals">
+					{{ fmt(cr.baselineTotal) }} → {{ fmt(cr.newTotal) }}
+					<strong class="cr-detail__delta">(Δ {{ fmtSigned(cr.delta) }})</strong>
+				</p>
+			</div>
 			<span class="cr-status" [attr.data-status]="cr.status">{{ cr.status }}</span>
-			<p class="cr-detail__totals">
-				{{ fmt(cr.baselineTotal) }} → {{ fmt(cr.newTotal) }}
-				<strong class="cr-detail__delta">(Δ {{ fmtSigned(cr.delta) }})</strong>
-			</p>
 		</header>
 
-		<!-- Diff / preview panel -->
-		<section class="cr-diff">
-			<h3>Proposed changes</h3>
+		<section class="cr-diff" aria-labelledby="cr-diff-heading">
+			<h3 id="cr-diff-heading">Proposed changes</h3>
 
 			<p *ngIf="diff.length === 0" class="cr-diff__empty" role="status">No line items on this change request.</p>
 
-			<table *ngIf="diff.length > 0" class="cr-diff__table">
-				<thead>
-					<tr>
-						<th>SKU</th>
-						<th>Change</th>
-						<th>Before</th>
-						<th>After</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr *ngFor="let row of diff; trackBy: trackBySku" class="cr-diff__row" [attr.data-kind]="row.kind" [attr.data-sku]="row.sku">
-						<td>{{ row.sku }}</td>
-						<td class="cr-diff__kind">{{ row.kind }}</td>
-						<td class="cr-diff__side">
-							<ng-container *ngIf="row.baseline as before; else emptyBefore">
-								<div class="cr-diff__desc">{{ before.description }}</div>
-								<div class="cr-diff__qty-price">{{ before.quantity }} × {{ fmt(before.unitPrice) }}</div>
-								<div class="cr-diff__line-total">{{ fmt(itemTotal(before)) }}</div>
-							</ng-container>
-							<ng-template #emptyBefore>—</ng-template>
-						</td>
-						<td class="cr-diff__side">
-							<ng-container *ngIf="row.proposed as after; else emptyAfter">
-								<div class="cr-diff__desc">{{ after.description }}</div>
-								<div class="cr-diff__qty-price">{{ after.quantity }} × {{ fmt(after.unitPrice) }}</div>
-								<div class="cr-diff__line-total">{{ fmt(itemTotal(after)) }}</div>
-							</ng-container>
-							<ng-template #emptyAfter>—</ng-template>
-						</td>
-					</tr>
-				</tbody>
-				<tfoot>
-					<tr class="cr-diff__footer-totals">
-						<th scope="row" colspan="2">Totals</th>
-						<td class="cr-diff__baseline-total">{{ fmt(cr.baselineTotal) }}</td>
-						<td class="cr-diff__proposed-total">{{ fmt(cr.newTotal) }}</td>
-					</tr>
-					<tr class="cr-diff__footer-delta">
-						<th scope="row" colspan="2">Delta</th>
-						<td colspan="2" class="cr-diff__delta-value">{{ fmtSigned(cr.delta) }}</td>
-					</tr>
-				</tfoot>
-			</table>
+			<div *ngIf="diff.length > 0" class="cr-table-scroll">
+				<table class="cr-diff__table">
+					<thead>
+						<tr>
+							<th scope="col">SKU</th>
+							<th scope="col">Change</th>
+							<th scope="col">Before</th>
+							<th scope="col">After</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr *ngFor="let row of diff; trackBy: trackBySku" class="cr-diff__row" [attr.data-kind]="row.kind" [attr.data-sku]="row.sku">
+							<td>{{ row.sku }}</td>
+							<td>
+								<span class="cr-diff__kind">{{ row.kind }}</span>
+							</td>
+							<td class="cr-diff__side">
+								<ng-container *ngIf="row.baseline as before; else emptyBefore">
+									<div class="cr-diff__desc">{{ before.description }}</div>
+									<div class="cr-diff__qty-price">{{ before.quantity }} × {{ fmt(before.unitPrice) }}</div>
+									<div class="cr-diff__line-total">{{ fmt(itemTotal(before)) }}</div>
+								</ng-container>
+								<ng-template #emptyBefore>—</ng-template>
+							</td>
+							<td class="cr-diff__side">
+								<ng-container *ngIf="row.proposed as after; else emptyAfter">
+									<div class="cr-diff__desc">{{ after.description }}</div>
+									<div class="cr-diff__qty-price">{{ after.quantity }} × {{ fmt(after.unitPrice) }}</div>
+									<div class="cr-diff__line-total">{{ fmt(itemTotal(after)) }}</div>
+								</ng-container>
+								<ng-template #emptyAfter>—</ng-template>
+							</td>
+						</tr>
+					</tbody>
+					<tfoot>
+						<tr class="cr-diff__footer-totals">
+							<th scope="row" colspan="2">Totals</th>
+							<td class="cr-diff__baseline-total">{{ fmt(cr.baselineTotal) }}</td>
+							<td class="cr-diff__proposed-total">{{ fmt(cr.newTotal) }}</td>
+						</tr>
+						<tr class="cr-diff__footer-delta">
+							<th scope="row" colspan="2">Delta</th>
+							<td colspan="2" class="cr-diff__delta-value">{{ fmtSigned(cr.delta) }}</td>
+						</tr>
+					</tfoot>
+				</table>
+			</div>
 		</section>
 
-		<!-- Approval timeline -->
-		<section class="cr-timeline">
-			<h3>Timeline</h3>
+		<section class="cr-timeline" aria-labelledby="cr-timeline-heading">
+			<h3 id="cr-timeline-heading">Timeline</h3>
 			<p *ngIf="timeline.length === 0" class="cr-timeline__empty" role="status">No history yet.</p>
 			<ol *ngIf="timeline.length > 0" class="cr-timeline__list">
 				<li *ngFor="let entry of timeline" class="cr-timeline__entry">
@@ -81,8 +85,7 @@
 			</ol>
 		</section>
 
-		<!-- Actions -->
-		<section class="cr-actions" [attr.aria-busy]="submitting ? true : null">
+		<section class="cr-actions" [attr.aria-busy]="submitting ? true : null" aria-label="Change request actions">
 			<p *ngIf="actionSuccess" class="cr-actions__success" role="status">{{ actionSuccess }}</p>
 			<p *ngIf="actionError" class="cr-actions__error" role="alert">{{ actionError }}</p>
 			<button

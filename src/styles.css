@@ -1,57 +1,190 @@
-/* Minimal demo styling — visual polish is NOT part of the exercise. */
+/* Global tokens, reset, shared primitives. Component layout lives in component stylesheets. */
+:root {
+	--color-text: #1c2430;
+	--color-text-muted: #5b6573;
+	--color-border: #d8dee6;
+	--color-border-subtle: #e8edf2;
+	--color-surface: #ffffff;
+	--color-surface-muted: #f5f7fa;
+	--color-page: #eef1f5;
+	--color-accent: #1f4e79;
+	--color-accent-soft: #e8f0f8;
+	--color-focus: #2563a8;
+	--color-success: #0f6b3c;
+	--color-success-bg: #e6f5ec;
+	--color-danger: #a11b2b;
+	--color-danger-bg: #fdecee;
+	--color-warning-bg: #fff6e5;
+	--color-unchanged-bg: #f7f8fa;
+	--radius: 8px;
+	--shadow: 0 1px 2px rgba(28, 36, 48, 0.06), 0 1px 3px rgba(28, 36, 48, 0.04);
+	--font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
 body {
-	font-family: system-ui, -apple-system, sans-serif;
+	font-family: var(--font);
 	margin: 0;
-	color: #1a1a1a;
+	color: var(--color-text);
+	background: var(--color-page);
+	line-height: 1.45;
+	-webkit-font-smoothing: antialiased;
 }
-.app-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 1rem;
-	padding: 0.75rem 1.25rem;
-	background: #f4f5f7;
-	border-bottom: 1px solid #ddd;
+
+h1,
+h2,
+h3 {
+	margin: 0;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	color: var(--color-text);
 }
-.app-layout {
-	display: grid;
-	grid-template-columns: 360px 1fr;
-	gap: 1.5rem;
-	padding: 1.25rem;
-	align-items: start;
+
+h1 {
+	font-size: 1.25rem;
 }
+
+h2 {
+	font-size: 1.05rem;
+}
+
+h3 {
+	font-size: 0.95rem;
+	color: var(--color-text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	font-weight: 600;
+}
+
+/* Shared table primitives */
+.cr-table-scroll {
+	display: block;
+	width: 100%;
+	max-width: 100%;
+	overflow-x: auto;
+	overflow-y: hidden;
+	-webkit-overflow-scrolling: touch;
+}
+
 table {
 	border-collapse: collapse;
 	width: 100%;
+	font-size: 0.875rem;
 }
+
 th,
 td {
 	text-align: left;
-	padding: 0.4rem 0.6rem;
-	border-bottom: 1px solid #eee;
+	padding: 0.55rem 0.65rem;
+	border-bottom: 1px solid var(--color-border-subtle);
+	vertical-align: top;
 }
-.cr-list__row {
+
+th {
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--color-text-muted);
+	font-weight: 600;
+	background: var(--color-surface-muted);
+}
+
+/* Status badges — used in list and detail (text + color) */
+.cr-status {
+	display: inline-block;
+	padding: 0.15rem 0.5rem;
+	border-radius: 999px;
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	line-height: 1.4;
+	border: 1px solid transparent;
+	white-space: nowrap;
+}
+
+.cr-status[data-status='DRAFT'] {
+	background: #eef0f3;
+	color: #3d4654;
+	border-color: #cfd5de;
+}
+
+.cr-status[data-status='SUBMITTED'] {
+	background: #eaf2fb;
+	color: #1a4a7a;
+	border-color: #b8d0ea;
+}
+
+.cr-status[data-status='PENDING_APPROVAL'] {
+	background: #fff4df;
+	color: #7a4e00;
+	border-color: #efd09a;
+}
+
+.cr-status[data-status='APPROVED'] {
+	background: var(--color-success-bg);
+	color: var(--color-success);
+	border-color: #b5dfc4;
+}
+
+.cr-status[data-status='APPLIED'] {
+	background: #e8f3ef;
+	color: #0d5c45;
+	border-color: #b5d9cb;
+}
+
+.cr-status[data-status='REJECTED'] {
+	background: var(--color-danger-bg);
+	color: var(--color-danger);
+	border-color: #f0c4c8;
+}
+
+.cr-status[data-status='CANCELLED'] {
+	background: #f0f0f0;
+	color: #555;
+	border-color: #d0d0d0;
+}
+
+/* Shared form/button baseline */
+button {
+	font: inherit;
+	padding: 0.45rem 0.9rem;
+	border-radius: 6px;
+	border: 1px solid var(--color-border);
+	background: var(--color-surface);
+	color: var(--color-text);
 	cursor: pointer;
 }
-.cr-list__row:hover {
-	background: #f0f6ff;
+
+button:hover:not(:disabled) {
+	background: var(--color-surface-muted);
 }
-button {
-	padding: 0.4rem 0.8rem;
-}
+
 button:disabled {
-	opacity: 0.5;
+	opacity: 0.55;
 	cursor: not-allowed;
 }
+
+button:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+	outline: 2px solid var(--color-focus);
+	outline-offset: 2px;
+}
+
 [role='alert'] {
-	color: #b00020;
+	color: var(--color-danger);
 }
-.cr-diff__row[data-kind='changed'] {
-	background: #fff6e5;
-}
-.cr-diff__row[data-kind='added'] {
-	background: #e9f8ee;
-}
-.cr-diff__row[data-kind='removed'] {
-	background: #fdecea;
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		transition: none !important;
+		animation: none !important;
+	}
 }
