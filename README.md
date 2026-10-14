@@ -1,38 +1,54 @@
-# Change Request Review UI — Frontend Exercise (Angular)
+# Change Request Review UI (Angular 15)
 
-A small **Angular** exercise for a procurement platform. You'll complete the UI an approver uses to
-review and act on **Change Requests (CRs)** — proposed amendments to a live Purchase Agreement.
+Completed frontend take-home for a procurement **Change Request (CR)** reviewer workflow. Approvers can find a CR, inspect the proposed agreement changes, review history, and approve or reject — with actions gated by status and user policies.
 
-You do **not** build a backend. A mock API service (`src/api/cr-api.service.ts`) with realistic fixtures
-is provided; treat it as the contract your components talk to. Start with
-[`CANDIDATE_BRIEF.md`](./CANDIDATE_BRIEF.md) for the scenario, tasks, and acceptance criteria.
+There is no real backend. Components talk to the mock `CrApiService` (`src/api/cr-api.service.ts`).
 
-## Stack & setup
+**Related docs:** [CANDIDATE_BRIEF.md](./CANDIDATE_BRIEF.md) · [IMPLEMENTATION_NOTES.md](./IMPLEMENTATION_NOTES.md) · [TESTING_OVERVIEW.md](./TESTING_OVERVIEW.md)
 
-Angular 15 (standalone components, reactive forms). It's a real, runnable app: `npm start` serves the UI
-in a browser, and `npm test` renders the components via `jest-preset-angular` (TestBed in jsdom). Plain
-HTML/CSS.
+## What this app does
+
+- **List** — org-scoped CRs with loading / loaded / empty / error states, status filter (including a distinct “no matches” view), signed monetary deltas, and keyboard-accessible row selection.
+- **Detail** — before/after line-item **diff** (added / removed / changed / unchanged), API totals and signed delta, and a **chronological timeline** (sorted copy of audit; original array is not mutated).
+- **Actions** — permission-aware Approve / Reject on `PENDING_APPROVAL` CRs; reject requires a non-whitespace reason; in-flight disablement, list sync after actions, and post-failure reconcile against the mock API.
+- **UX** — explicit view-states (no blank panels), success/error feedback, stale-selection protection, safe mid-flight navigation, and a responsive two-column layout that stacks on narrower viewports.
+
+## Stack
+
+- Angular 15 (standalone components, reactive forms)
+- TypeScript 4.9.5
+- Jest + `jest-preset-angular` (TestBed / jsdom)
+- Plain HTML/CSS (no UI kit)
+
+## Setup & commands
+
+Requires Node 18 (`nvm use` → 18.20.3). Keep `.npmrc` (`legacy-peer-deps`).
 
 ```bash
-nvm use            # Node 18.20.3
-npm ci             # uses .npmrc (legacy-peer-deps) — please keep it
-npm start          # ng serve -> http://localhost:4200  (run the UI to click through / record your demo)
-npm test           # Jest — two tests fail on purpose; fixing them is task 1
-npm run build      # ng build (production)
+npm ci
+npm start              # http://localhost:4200
+npm test               # 47 Jest tests, 6 suites
+npm run typecheck
 npm run lint
-npm run format
+npm run build          # production build
+npm run format         # Prettier on src/**/*.ts
 ```
 
-### Running the UI
+## Demo user switcher
 
-`npm start` boots a small demo shell (`src/app/`) that hosts the list + detail screens. Use the
-**"Acting as"** switcher in the header to change the current user (approver / viewer / other-org) so you
-can show your permission-aware action states in the walkthrough video. The shell is just glue for the
-demo — the exercise itself is the list/detail components and their templates.
+`npm start` opens a demo shell with an **Acting as** control in the header:
 
-## Policy-string convention
+| Key | Role |
+|---|---|
+| `approver` | org-alpha, read + approve |
+| `viewer` | org-alpha, read-only |
+| `otherOrg` | org-beta, read + approve |
 
-The current user (from `SessionService`) carries permission strings shaped **`cr_{action}_{scope}`**:
+Use it to demonstrate permission-aware actions and org-scoped data. Switching users clears the current selection and remounts both panes.
+
+## Policy strings & statuses
+
+Users carry policies shaped **`cr_{action}_{scope}`**:
 
 | action | meaning | | scope | meaning |
 |---|---|---|---|---|
@@ -40,51 +56,25 @@ The current user (from `SessionService`) carries permission strings shaped **`cr
 | `a` | approve | | `w` | workspace |
 | `x` | apply | | `o` | org |
 
-e.g. `cr_a_o` = may approve any CR in the org; a user with only `cr_r_o` is read-only. The UI must only
-offer/enable an action the current user is actually permitted to perform.
+Example: `cr_a_o` may approve org CRs; `cr_r_o` alone is read-only. The UI only enables actions the current user is permitted to perform (see notes for scope assumptions when models lack owner/workspace fields).
 
-## CR statuses (read-only context)
+Statuses: `DRAFT → SUBMITTED → PENDING_APPROVAL → APPROVED → APPLIED`, with `REJECTED` / `CANCELLED` terminal. Approve/Reject apply to `PENDING_APPROVAL`.
 
-`DRAFT → SUBMITTED → PENDING_APPROVAL → APPROVED → APPLIED`, with `REJECTED` / `CANCELLED` terminal.
-Approve/Reject act on a `PENDING_APPROVAL` CR. You consume these statuses; you don't drive backend
-transitions.
+## Tests
 
-## Where to work
+**47 passing tests** across 6 suites (unit helpers + Angular component/DOM). Full inventory: [TESTING_OVERVIEW.md](./TESTING_OVERVIEW.md).
 
-- `src/components/cr-list/cr-list.component.{ts,html}` — list page; the **status filter**
-  (`visibleRows`) is a TODO.
-- `src/components/cr-detail/cr-detail.component.{ts,html}` — detail page; **timeline ordering**,
-  **permission-aware** `canApprove`/`canReject`, the **approve/reject actions**, and **reject-reason
-  validation** are yours.
-- `src/components/diff.util.ts` — the preview-panel diff; its change-detection has a defect surfaced by
-  `diff.spec.ts`.
-
-The visible tests are a starting point, not the full specification.
-
-## Testing components
-
-Component tests use `TestBed` and assert on rendered DOM. The mock API resolves on a timer, so tests are
-real `async`: render with `detectChanges()`, let the API settle, then `detectChanges()` again. See the
-provided `*.component.spec.ts` files for the exact pattern (it's a 6-line helper you can copy).
-
-## Files
+## Source layout
 
 ```
 src/
-  models/cr.models.ts              # CrSummary, CrDetail, LineItem, TimelineEntry, ReqUser
-  common/                          # view-state, money.util, permissions (policy helpers)
-  api/                             # fixtures + CrApiService (mock, org-scoped, latency/failNext)
-  session/session.service.ts       # current user
+  app/                 # demo shell (selection, user switch, list↔detail sync)
   components/
-    diff.util.ts                   # baseline-vs-proposed line-item diff
-    cr-list/cr-list.component.{ts,html}
-    cr-detail/cr-detail.component.{ts,html}
-    diff.spec.ts                            # one failing case to start from
-    cr-list/cr-list.component.spec.ts       # passing example (loaded / empty render)
-    cr-detail/cr-detail.component.spec.ts   # one failing case to start from
+    cr-list/           # list + filter + selection
+    cr-detail/         # diff, timeline, approve/reject
+    diff.util.ts       # baseline vs proposed line-item diff
+  common/              # view-state, permissions, money formatting
+  api/                 # fixtures + mock CrApiService
+  session/             # current demo user
+  models/              # CR domain types
 ```
-
-## A note on AI tools
-
-Using AI tools is allowed and expected — see the brief for the (light) disclosure policy. The follow-up
-interview is built around your own code, so make sure you understand what you submit.
