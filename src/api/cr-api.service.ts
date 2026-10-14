@@ -3,20 +3,15 @@ import { CrDetail, CrSummary, ReqUser } from '../models/cr.models';
 import { details as fixtureDetails, summaries as fixtureSummaries } from './fixtures';
 
 /**
- * Mock API service standing in for the real HTTP service. It is org-scoped (returns only the
- * caller's org), supports injectable latency, and can be told to fail the next call so the UI's
- * loading/error handling can be exercised.
- *
- * You do NOT need a backend — treat this as the contract your components talk to. (In production
- * this would be an HttpClient-backed service returning Observables; here it returns Promises that
- * resolve on a timer, so they integrate cleanly with Angular's async testing.)
+ * Org-scoped mock API (Promise + timer). Contract for list/detail; supports `latencyMs` / `failNext`.
+ * `transition` mutates `detailStore` before `settle`, so `failNext` can reject after a persisted status change.
  */
 @Injectable({ providedIn: 'root' })
 export class CrApiService {
 	private detailStore: Record<string, CrDetail> = JSON.parse(JSON.stringify(fixtureDetails));
-	/** Set > 0 to simulate network latency (ms). */
+	/** Simulated network delay (ms). */
 	latencyMs = 0;
-	/** When true, the NEXT call rejects with a network error, then resets. */
+	/** One-shot: next `settle` rejects with "Network error", then clears. */
 	failNext = false;
 
 	private settle<T>(value: T): Promise<T> {
@@ -41,7 +36,9 @@ export class CrApiService {
 			.filter((s) => s.orgCode === user.orgCode)
 			.map((s) => {
 				const d = this.detailStore[s.id];
-				return d ? { id: d.id, title: d.title, status: d.status, orgCode: d.orgCode, delta: d.delta, currency: d.currency, updatedAt: d.updatedAt } : { ...s };
+				return d
+					? { id: d.id, title: d.title, status: d.status, orgCode: d.orgCode, delta: d.delta, currency: d.currency, updatedAt: d.updatedAt }
+					: { ...s };
 			});
 		return this.settle(rows);
 	}
@@ -60,6 +57,7 @@ export class CrApiService {
 		return this.transition(user, id, 'REJECTED', 'REJECT', at, reason);
 	}
 
+	/** Persist status/audit first, then settle (enables post-error reconcile against a committed mock state). */
 	private transition(user: ReqUser, id: string, status: CrDetail['status'], action: string, at: string, note?: string): Promise<CrDetail> {
 		const cr = this.detailStore[id];
 		if (!cr || cr.orgCode !== user.orgCode) return this.fail<CrDetail>('Not found');

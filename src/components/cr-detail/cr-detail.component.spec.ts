@@ -7,6 +7,7 @@ import { users } from '../../api/fixtures';
 import { CrDetail, ReqUser } from '../../models/cr.models';
 import { FormControl } from '@angular/forms';
 
+/** Parent host so tests can change `[id]` through an input binding. */
 @Component({
 	standalone: true,
 	imports: [CrDetailComponent],
@@ -20,6 +21,7 @@ class DetailHostComponent {
 	}
 }
 
+/** One macrotask — matches CrApiService settle(setTimeout). */
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 async function render(user: ReqUser, id: string): Promise<ComponentFixture<CrDetailComponent>> {
@@ -36,6 +38,7 @@ async function render(user: ReqUser, id: string): Promise<ComponentFixture<CrDet
 	return fixture;
 }
 
+/** Flush + detectChanges for action (+ optional reconcile) Promise chains. */
 async function settleActions(fixture: ComponentFixture<CrDetailComponent>, rounds = 2): Promise<void> {
 	for (let i = 0; i < rounds; i++) {
 		await flush();
@@ -121,9 +124,7 @@ describe('CrDetailComponent', () => {
 
 	it('renders the timeline oldest-first without mutating the API audit array', async () => {
 		const fixture = await render(users.approver, 'CR-1');
-		const actions = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__action')).map(
-			(el: Element) => el.textContent?.trim(),
-		);
+		const actions = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__action')).map((el: Element) => el.textContent?.trim());
 		expect(actions).toEqual(['CREATE', 'SUBMIT', 'SEND_FOR_APPROVAL']);
 
 		const detail = fixture.componentInstance.detail;
@@ -234,8 +235,8 @@ describe('CrDetailComponent', () => {
 			expect(fixture.nativeElement.querySelector('.cr-actions__success').textContent).toContain('approved');
 			expect(fixture.nativeElement.querySelector('.cr-actions__approve').disabled).toBe(true);
 			expect(fixture.nativeElement.querySelector('.cr-actions__reject')).toBeNull();
-			const actions = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__action')).map(
-				(el: Element) => el.textContent?.trim(),
+			const actions = Array.from(fixture.nativeElement.querySelectorAll('.cr-timeline__action')).map((el: Element) =>
+				el.textContent?.trim(),
 			);
 			expect(actions[actions.length - 1]).toBe('APPROVE');
 		});
@@ -284,7 +285,11 @@ describe('CrDetailComponent', () => {
 			fixture.nativeElement.querySelector('.cr-actions__approve').click();
 			expect(approveSpy).toHaveBeenCalledTimes(1);
 
-			resolveApprove({ ...detail, status: 'APPROVED', audit: [...detail.audit, { action: 'APPROVE', byUserId: 'mona', at: '2026-03-02T12:00:00.000Z' }] });
+			resolveApprove({
+				...detail,
+				status: 'APPROVED',
+				audit: [...detail.audit, { action: 'APPROVE', byUserId: 'mona', at: '2026-03-02T12:00:00.000Z' }],
+			});
 			await deferred;
 			await settleActions(fixture, 1);
 			expect(fixture.nativeElement.querySelector('.cr-status').textContent).toContain('APPROVED');

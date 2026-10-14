@@ -1,4 +1,4 @@
-/** loading / loaded / empty / error view-state, as a template switches on. */
+/** Explicit template-facing fetch state (avoids implying UI mode from null data alone). */
 export type ViewStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 
 export interface ViewState<T> {
@@ -10,6 +10,7 @@ export interface ViewState<T> {
 export function idle<T>(): ViewState<T> {
 	return { status: 'idle', data: null };
 }
+
 export function loading<T>(): ViewState<T> {
 	return { status: 'loading', data: null };
 }

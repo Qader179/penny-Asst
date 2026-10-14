@@ -9,12 +9,10 @@ export interface DiffRow {
 	proposed?: LineItem;
 }
 
-/** True when any displayed line-item field differs between baseline and proposed. */
+/** Qty, unit price, or description differ — includes unit-price-only edits. */
 function isLineItemChanged(baseline: LineItem, proposed: LineItem): boolean {
 	return (
-		baseline.quantity !== proposed.quantity ||
-		baseline.unitPrice !== proposed.unitPrice ||
-		baseline.description !== proposed.description
+		baseline.quantity !== proposed.quantity || baseline.unitPrice !== proposed.unitPrice || baseline.description !== proposed.description
 	);
 }
 

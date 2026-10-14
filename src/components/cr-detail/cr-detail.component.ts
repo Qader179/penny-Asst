@@ -9,14 +9,14 @@ import { canActOnPendingCr } from '../../common/permissions';
 import { computeDiff, DiffRow } from '../diff.util';
 import { formatMoney, formatSignedMoney, lineTotal } from '../../common/money.util';
 
-/** Reject reasons must contain non-whitespace content. */
+/** Non-whitespace reject reason required. */
 export function requiredTrimmed(control: AbstractControl): ValidationErrors | null {
 	return String(control.value ?? '').trim() ? null : { required: true };
 }
 
 /**
- * Change Request DETAIL page: loads a CR and renders the diff/preview, the approval timeline, and
- * permission-aware Approve/Reject actions with validation and safe in-flight / failure handling.
+ * CR detail: diff, chronological timeline, and permission-aware Approve/Reject with
+ * in-flight guards, post-failure reconcile, and stale-response protection via `loadSeq`.
  */
 @Component({
 	selector: 'app-cr-detail',
@@ -27,20 +27,21 @@ export function requiredTrimmed(control: AbstractControl): ValidationErrors | nu
 })
 export class CrDetailComponent implements OnInit, OnChanges {
 	@Input() id!: string;
-	/** Emitted when the loaded CR changes due to a successful action or a successful post-failure reconcile. */
+	/** Successful action or successful post-failure reconcile — parent patches the list row. */
 	@Output() changed = new EventEmitter<CrDetail>();
 
 	state: ViewState<CrDetail> = idle();
+	/** Disables action buttons for the duration of the API call. */
 	submitting = false;
-	/** Which action is in flight — drives button labels without disabling the reject control. */
+	/** In-flight action for button labels; reason field stays `readonly` (not FormControl.disabled) so validation remains meaningful. */
 	pendingKind: 'approve' | 'reject' | null = null;
-	/** Blocks further actions when a failed call could not be reconciled with the server. */
+	/** Set when reconcile also fails — block retries until reload. */
 	actionsBlocked = false;
 	actionError?: string;
 	actionSuccess?: string;
 	rejectControl = new FormControl('', { nonNullable: true, validators: [requiredTrimmed] });
 
-	/** Monotonic token so an older load response cannot overwrite a newer selection. */
+	/** Bumped on each load; stale responses for older sequences are ignored. */
 	private loadSeq = 0;
 
 	constructor(private readonly api: CrApiService, private readonly session: SessionService) {}
@@ -50,6 +51,7 @@ export class CrDetailComponent implements OnInit, OnChanges {
 	}
 
 	ngOnChanges(changes: SimpleChanges): void {
+		// Skip firstChange — ngOnInit already loads; avoids a duplicate initial GET.
 		if (changes['id'] && !changes['id'].firstChange) {
 			void this.load();
 		}
@@ -59,6 +61,7 @@ export class CrDetailComponent implements OnInit, OnChanges {
 		const requestedId = this.id;
 		const seq = ++this.loadSeq;
 
+		// Clear prior CR action UI so success/error/block state cannot leak across selections.
 		this.state = loading();
 		this.submitting = false;
 		this.pendingKind = null;

@@ -18,11 +18,7 @@
 
 	<p *ngIf="state.status === 'empty'" class="cr-list__empty">No change requests to show.</p>
 
-	<p
-		*ngIf="state.status === 'loaded' && visibleRows.length === 0"
-		class="cr-list__no-matches"
-		role="status"
-	>
+	<p *ngIf="state.status === 'loaded' && visibleRows.length === 0" class="cr-list__no-matches" role="status">
 		No change requests match the selected status.
 	</p>
 
@@ -44,6 +40,7 @@
 					(click)="onRowActivate(cr.id)"
 				>
 					<td>
+						<!-- Native control for keyboard selection (row click remains mouse affordance) -->
 						<button
 							type="button"
 							class="cr-list__select-btn"
@@ -55,7 +52,9 @@
 						</button>
 					</td>
 					<td class="cr-list__title">{{ cr.title }}</td>
-					<td><span class="cr-status" [attr.data-status]="cr.status">{{ cr.status }}</span></td>
+					<td>
+						<span class="cr-status" [attr.data-status]="cr.status">{{ cr.status }}</span>
+					</td>
 					<td class="cr-list__delta">{{ fmtDelta(cr) }}</td>
 				</tr>
 			</tbody>

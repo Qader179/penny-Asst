@@ -10,6 +10,7 @@
 
 <main class="app-layout" *ngIf="show">
 	<app-cr-list [selectedId]="selectedId" (select)="onSelect($event)"></app-cr-list>
+	<!-- (changed) patches the list row after action/reconcile without reloading the list -->
 	<app-cr-detail *ngIf="selectedId" [id]="selectedId" (changed)="onCrChanged($event)"></app-cr-detail>
 	<p *ngIf="!selectedId" class="app-detail-placeholder" role="status">Select a change request from the list to review its details.</p>
 </main>

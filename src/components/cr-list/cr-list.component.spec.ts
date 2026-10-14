@@ -7,7 +7,10 @@ import { ReqUser } from '../../models/cr.models';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
-async function setup(user: ReqUser, options?: { failNext?: boolean }): Promise<{
+async function setup(
+	user: ReqUser,
+	options?: { failNext?: boolean },
+): Promise<{
 	fixture: ComponentFixture<CrListComponent>;
 	api: CrApiService;
 }> {
@@ -134,7 +137,6 @@ describe('CrListComponent', () => {
 		expect(selected.querySelector('.cr-list__select-btn')?.getAttribute('aria-current')).toBe('true');
 		expect(selected.textContent).toContain('+USD 500.00');
 	});
-
 
 	it('applies a remote detail update without clearing the status filter', async () => {
 		const fixture = await render(users.approver);

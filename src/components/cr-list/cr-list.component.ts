@@ -7,8 +7,7 @@ import { idle, loading, ViewState } from '../../common/view-state';
 import { formatSignedMoney } from '../../common/money.util';
 
 /**
- * Change Request LIST page. Loads the caller's CRs and renders loading / loaded / empty / error
- * states, plus a status filter that narrows `visibleRows` (and the rendered table).
+ * CR list: explicit view-states, client-side status filter, and in-place row patches from detail.
  */
 @Component({
 	selector: 'app-cr-list',
@@ -22,8 +21,18 @@ export class CrListComponent implements OnInit {
 	@Output() select = new EventEmitter<string>();
 
 	state: ViewState<CrSummary[]> = idle();
+	/** Client-side only — does not re-fetch. */
 	statusFilter: CrStatus | 'ALL' = 'ALL';
-	readonly statuses: (CrStatus | 'ALL')[] = ['ALL', 'DRAFT', 'SUBMITTED', 'PENDING_APPROVAL', 'APPROVED', 'APPLIED', 'REJECTED', 'CANCELLED'];
+	readonly statuses: (CrStatus | 'ALL')[] = [
+		'ALL',
+		'DRAFT',
+		'SUBMITTED',
+		'PENDING_APPROVAL',
+		'APPROVED',
+		'APPLIED',
+		'REJECTED',
+		'CANCELLED',
+	];
 
 	constructor(private readonly api: CrApiService, private readonly session: SessionService) {}
 

@@ -61,7 +61,7 @@ h3 {
 	font-weight: 600;
 }
 
-/* Shared table primitives */
+/* Horizontal scroll confined to the table region (not the page) */
 .cr-table-scroll {
 	display: block;
 	width: 100%;

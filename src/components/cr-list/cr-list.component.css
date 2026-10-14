@@ -1,3 +1,4 @@
+/* Host min-width:0 keeps the list column from expanding the page grid */
 :host {
 	display: block;
 	min-width: 0;

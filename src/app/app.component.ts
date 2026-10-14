@@ -7,11 +7,8 @@ import { users } from '../api/fixtures';
 import { CrDetail } from '../models/cr.models';
 
 /**
- * Demo app shell that hosts the list + detail screens so you can click through the UI in a browser
- * (run `npm start`). The "Acting as" switcher changes the current user via SessionService and reloads
- * both panes — handy for demoing permission-aware action states in your walkthrough video.
- *
- * This shell is just glue for the demo; the exercise is the list/detail components and their templates.
+ * Demo shell: owns selection, remounts panes on user switch, and forwards detail `changed`
+ * into the list so row status stays in sync without a full list reload.
  */
 @Component({
 	selector: 'app-root',
@@ -24,6 +21,7 @@ export class AppComponent {
 	readonly users = users;
 	readonly userKeys = Object.keys(users);
 	selectedId: string | null = 'CR-1';
+	/** Toggled false→true to remount list/detail after a session user change. */
 	show = true;
 
 	@ViewChild(CrListComponent) private list?: CrListComponent;
@@ -32,7 +30,7 @@ export class AppComponent {
 
 	switchUser(key: string): void {
 		this.session.user = users[key];
-		// Drop the previous selection so another org never sees a stale CR detail.
+		// Clear selection so another org cannot keep viewing a prior CR detail.
 		this.selectedId = null;
 		this.reload();
 	}
@@ -41,11 +39,12 @@ export class AppComponent {
 		this.selectedId = id;
 	}
 
+	/** Detail → list sync after approve/reject or successful post-failure reconcile. */
 	onCrChanged(detail: CrDetail): void {
 		this.list?.applyRemoteUpdate(detail);
 	}
 
-	/** Destroy + recreate the panes so they re-load as the newly selected user. */
+	/** Remount panes so both reload under the new SessionService.user. */
 	private reload(): void {
 		this.show = false;
 		setTimeout(() => (this.show = true));

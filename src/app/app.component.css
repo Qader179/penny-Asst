@@ -1,3 +1,4 @@
+/* min-width:0 — allow grid/flex children to shrink without forcing page overflow */
 :host {
 	display: block;
 	min-width: 0;

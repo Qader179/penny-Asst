@@ -88,27 +88,16 @@
 		<section class="cr-actions" [attr.aria-busy]="submitting ? true : null" aria-label="Change request actions">
 			<p *ngIf="actionSuccess" class="cr-actions__success" role="status">{{ actionSuccess }}</p>
 			<p *ngIf="actionError" class="cr-actions__error" role="alert">{{ actionError }}</p>
-			<button
-				*ngIf="actionsBlocked"
-				type="button"
-				class="cr-actions__reload"
-				(click)="load()"
-			>
-				Reload
-			</button>
+			<button *ngIf="actionsBlocked" type="button" class="cr-actions__reload" (click)="load()">Reload</button>
 
-			<button
-				type="button"
-				class="cr-actions__approve"
-				[disabled]="!canApprove || submitting"
-				(click)="approve()"
-			>
+			<button type="button" class="cr-actions__approve" [disabled]="!canApprove || submitting" (click)="approve()">
 				{{ pendingKind === 'approve' ? 'Approving…' : 'Approve' }}
 			</button>
 
 			<div class="cr-actions__reject" *ngIf="canReject">
 				<label for="cr-reject-reason">
 					Reason for rejection
+					<!-- readonly (not disabled) while submitting so FormControl validators stay active -->
 					<textarea
 						id="cr-reject-reason"
 						class="cr-actions__reason"
@@ -118,12 +107,7 @@
 						[attr.aria-describedby]="rejectControl.invalid && rejectControl.touched ? 'cr-reject-reason-error' : null"
 					></textarea>
 				</label>
-				<p
-					*ngIf="rejectControl.invalid && rejectControl.touched"
-					id="cr-reject-reason-error"
-					class="cr-actions__reason-error"
-					role="alert"
-				>
+				<p *ngIf="rejectControl.invalid && rejectControl.touched" id="cr-reject-reason-error" class="cr-actions__reason-error" role="alert">
 					Please enter a reason.
 				</p>
 				<button
